@@ -1,0 +1,52 @@
+let
+    Query = let
+    // Get the API Token
+    login_url = "https://login.mypurecloud.com",
+    token_path = "oauth/token",
+    ClientID = "31968aa7-2484-4e0a-8fc8-a0f2660e4807",
+    Secret = "cO96E3d5Q25aPtEuMnZviM8E8LO--nRUmqdk3DLTVkc",
+
+    EncodedCredentials = "Basic " & Binary.ToText(Text.ToBinary(ClientID & ":" & Secret), BinaryEncoding.Base64),
+
+    Token_Response = Json.Document(Web.Contents(login_url,
+    [
+        RelativePath = token_path,
+        Headers = [#"Content-Type"="application/x-www-form-urlencoded", #"Authorization"=EncodedCredentials],
+        Content = Text.ToBinary("grant_type=client_credentials")
+    ])),
+
+    // API query conversation details endpoint
+    token = Token_Response[access_token],
+    api_url = "https://api.mypurecloud.com",
+    query_path = "api/v2/analytics/conversations/details/query",
+
+    data = Json.Document(Web.Contents(api_url,
+    [
+        RelativePath = query_path,
+        Headers = [#"Authorization"="Bearer " & token, #"Content-Type"="application/json"],
+        Content = Text.ToBinary("{
+            ""segmentFilters"": [
+                {
+                    ""predicates"": [
+                        {
+                            ""type"": ""dimension"",
+                            ""dimension"": ""mediaType"",
+                            ""operator"": ""matches"",
+                            ""value"": ""voice""
+                        }
+                    ],
+                    ""type"": ""and""
+                }
+            ],
+            ""order"": ""asc"",
+            ""orderBy"": ""conversationStart"",
+            ""interval"": ""2024-09-09T10:00:00/2024-09-09T20:00:00""
+        }")
+    ])),
+
+    // Convert JSON to table
+   conversations = data[conversations],
+#"Converted to Table" = Table.FromList(conversations, Splitter.SplitTextByDelimiter(","), null, null, ExtraValues.Error)
+in 
+
+conversations
