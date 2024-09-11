@@ -1,6 +1,7 @@
 let
     Query = let
-    // Get the API Token
+
+    // Autenticação Genesys Cloud via OAuth
     login_url = "https://login.mypurecloud.com",
     token_path = "oauth/token",
     ClientID = "31968aa7-2484-4e0a-8fc8-a0f2660e4807",
@@ -15,11 +16,22 @@ let
         Content = Text.ToBinary("grant_type=client_credentials")
     ])),
 
-    // API query conversation details endpoint
+    // API query conversation details
     token = Token_Response[access_token],
     api_url = "https://api.mypurecloud.com",
     query_path = "api/v2/analytics/conversations/details/query",
 
+
+    //Intervalo dinâmico
+    CurrentTime = DateTime.LocalNow(),
+    OneHourAgo = DateTime.From(CurrentTime - #duration(0,1,0,0)),
+
+    StartTimeISO = DateTime.ToText(OneHourAgo, "yyyy-MM-ddTHH:mm:ss"),
+    EndTimeISO = DateTime.ToText(CurrentTime, "yyyy-MM-ddTHH:mm:ss"),
+
+    intervalISO = """" & StartTimeISO & "/" & EndTimeISO & """",
+
+    //Body
     data = Json.Document(Web.Contents(api_url,
     [
         RelativePath = query_path,
@@ -40,11 +52,11 @@ let
             ],
             ""order"": ""asc"",
             ""orderBy"": ""conversationStart"",
-            ""interval"": ""2024-09-09T10:00:00/2024-09-09T20:00:00""
+            ""interval"": " & intervalISO & "
         }")
     ])),
 
-    // Convert JSON to table
+    // Converter o JSON em tabela
    conversations = data[conversations],
 #"Converted to Table" = Table.FromList(conversations, Splitter.SplitTextByDelimiter(","), null, null, ExtraValues.Error)
 in 
